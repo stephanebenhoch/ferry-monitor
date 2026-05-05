@@ -1,7 +1,7 @@
 name: Check Lite Ferry
 on:
   schedule:
-    - cron: '*/15 * * * *'
+    - cron: '*/10 * * * *'
   workflow_dispatch:
 
 jobs:
@@ -22,14 +22,20 @@ jobs:
           echo "Response: $RESPONSE"
 
           AVAILABLE=$(echo "$RESPONSE" | jq -r '[.[] | select(.isAvailable == true) | .date] | join(", ")')
+          TIMESTAMP=$(TZ='Europe/Berlin' date '+%d.%m. %H:%M')
 
-          if true; then
+          if [ -n "$AVAILABLE" ]; then
             echo "FOUND: $AVAILABLE"
             curl -s -X POST "https://ntfy.sh/${NTFY_TOPIC}" \
-              -H "Title: Lite Ferry buchbar!" \
-              -H "Priority: high" \
-              -H "Tags: ship,boom" \
-              -d "Buchbar geworden: $AVAILABLE - https://liteshipping.barkota.com/"
+              -H "Title: 🚢 Lite Ferry BUCHBAR!" \
+              -H "Priority: max" \
+              -H "Tags: ship,boom,rotating_light" \
+              -d "Buchbar: $AVAILABLE - https://liteshipping.barkota.com/"
           else
             echo "Noch nichts verfügbar."
+            curl -s -X POST "https://ntfy.sh/${NTFY_TOPIC}" \
+              -H "Title: Ferry-Check OK" \
+              -H "Priority: min" \
+              -H "Tags: hourglass_flowing_sand" \
+              -d "Noch nichts verfügbar – Stand $TIMESTAMP"
           fi
