@@ -1,0 +1,35 @@
+name: Check Lite Ferry
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check availability and notify
+        env:
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+        run: |
+          RESPONSE=$(curl -s -X POST \
+            'https://barkota-reseller-php-prod-4kl27j34za-uc.a.run.app/ob/voyages/available-dates/passageandcargo' \
+            -H 'Content-Type: application/json' \
+            -H 'Origin: https://liteshipping.barkota.com' \
+            -H 'Referer: https://liteshipping.barkota.com/' \
+            --data-raw '{"origin":"94","destination":"96","passengerCount":4,"departureDate":"2026-05-25","shippingCompany":"e8069e46-395b-11e7-993a-42010af0018a","cargoItemId":null,"withDriver":0}')
+
+          echo "Response: $RESPONSE"
+
+          AVAILABLE=$(echo "$RESPONSE" | jq -r '[.[] | select(.isAvailable == true) | .date] | join(", ")')
+
+          if [ -n "$AVAILABLE" ]; then
+            echo "FOUND: $AVAILABLE"
+            curl -s -X POST "https://ntfy.sh/${NTFY_TOPIC}" \
+              -H "Title: Lite Ferry buchbar!" \
+              -H "Priority: high" \
+              -H "Tags: ship,boom" \
+              -d "Buchbar geworden: $AVAILABLE - https://liteshipping.barkota.com/"
+          else
+            echo "Noch nichts verfügbar."
+          fi
